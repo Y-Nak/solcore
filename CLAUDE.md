@@ -292,15 +292,15 @@ The project uses Nix flakes for reproducible builds:
 **Packages** (`nix build .#<package>`):
 - `sol-core` - Main Haskell compiler
 - `testrunner` - C++ testrunner binary
-- `intx`, `blst`, `evmone` - EVM dependencies (built from source)
+- `evmone` - EVM implementation (build includes pinned `intx`/`blst` dependencies)
 
 **Checks** (`nix flake check`):
 - `contests` - Builds testrunner and runs integration test suite
 
 The Nix build system:
-1. Fetches dependencies (evmone, intx, blst) from upstream Git repositories
-2. Patches evmone to disable Hunter package manager (substitutes with Nix-provided deps)
-3. Builds testrunner with `pkgs.boost` and `pkgs.nlohmann_json` from nixpkgs
+1. Fetches evmone from upstream and builds it with pinned `intx`/`blst` in `nix/evmone.nix`
+2. Disables Hunter in evmone builds (Nix sandbox has no network access)
+3. Builds testrunner with `pkgs.boost` and `pkgs.nlohmann_json` from flake-locked nixpkgs
 4. Runs contest tests with environment variables pointing to Nix store paths
 
 **Nix derivation files:**
