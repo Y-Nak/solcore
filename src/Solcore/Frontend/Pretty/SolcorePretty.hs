@@ -244,7 +244,7 @@ instance (Pretty a) => Pretty (Instance a) where
       $$ rbrace
 
 pprInstLabel :: Maybe Name -> Doc
-pprInstLabel Nothing    = empty
+pprInstLabel Nothing = empty
 pprInstLabel (Just lbl) = text "[" <> ppr lbl <> text "]"
 
 pprDefault :: Bool -> Doc
@@ -381,7 +381,7 @@ pprE Nothing = ""
 pprE (Just e) = ppr e <> text "."
 
 pprCallLabel :: Maybe Name -> Doc
-pprCallLabel Nothing    = empty
+pprCallLabel Nothing = empty
 pprCallLabel (Just lbl) = text "@{" <> ppr lbl <> text "}"
 
 instance (Pretty a) => Pretty (Pat a) where
