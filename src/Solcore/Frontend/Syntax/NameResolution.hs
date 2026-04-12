@@ -743,18 +743,18 @@ instance Resolve S.Exp where
   resolve x@(S.ExpNameAt me n lbl es) = do
     me' <- resolve me `wrapError` x
     es' <- resolve es `wrapError` x
-    let qn = QualName lbl (pretty n)
-        args = maybe es' (: es') me'
-    dt <- lookupName qn
-    case dt of
-      Just TFunction -> pure (Call Nothing n (Just lbl) args)
-      _ ->
-        throwError $
-          "Unknown named instance label '"
-            ++ pretty lbl
-            ++ "' for method '"
-            ++ pretty n
-            ++ "'"
+    case me' of
+      Just (Var c) -> do
+        ct <- lookupName c
+        case ct of
+          Just TClass -> do
+            let qn = QualName c (pretty n)
+            cf <- gets (Map.lookup qn . scopeEnv)
+            case cf of
+              Just TFunction -> pure (Call Nothing qn (Just lbl) es')
+              _ -> undefinedName n
+          _ -> resolveNamedCall me' n lbl es'
+      _ -> resolveNamedCall me' n lbl es'
 
 instance Resolve S.Literal where
   type Result S.Literal = Literal
@@ -965,6 +965,21 @@ addQualifiedModules :: Name -> Env -> Env
 addQualifiedModules (QualName qualifier _) env =
   foldr addModuleName env (modulePrefixes qualifier)
 addQualifiedModules _ env = env
+
+resolveNamedCall :: Maybe (Exp Name) -> Name -> Name -> [Exp Name] -> ResolveM (Exp Name)
+resolveNamedCall me n lbl es = do
+  let qn = QualName lbl (pretty n)
+      args = maybe es (: es) me
+  dt <- lookupName qn
+  case dt of
+    Just TFunction -> pure (Call Nothing n (Just lbl) args)
+    _ ->
+      throwError $
+        "Unknown named instance label '"
+          ++ pretty lbl
+          ++ "' for method '"
+          ++ pretty n
+          ++ "'"
 
 -- definition of a monad for name resolution
 
