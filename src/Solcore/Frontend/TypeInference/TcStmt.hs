@@ -1344,7 +1344,8 @@ tcCallNamed me n lbl args =
     let callExpr = Call me n (Just lbl) args
     namedInsts <- askNamedInstances lbl
     when (null namedInsts) $
-      throwError $ "Unknown named instance label: " ++ pretty lbl
+      throwError $
+        "Unknown named instance label: " ++ pretty lbl
     mrecv <- mapM tcExp me
     (es', pss', ts') <- unzip3 <$> mapM tcExp args
     let recvArgs = maybe [] (\(e', _, _) -> [e']) mrecv
@@ -1443,7 +1444,7 @@ matchesNamedCall callExpr n lbl allTys inst =
           t' <- freshTyVar
           _ <- unify t (funtype allTys t') `wrapError` callExpr
           pure True
-      )
+        )
         `catchError` (\_ -> pure False)
     put st
     pure res
