@@ -1452,6 +1452,14 @@ renameExpFunctionCalls renameMap (ExpName me n es) =
       | me == Nothing = Map.findWithDefault n n renameMap
       | otherwise = n
     es' = map (renameExpFunctionCalls renameMap) es
+renameExpFunctionCalls renameMap (ExpNameAt me n lbl es) =
+  ExpNameAt me' n' lbl es'
+  where
+    me' = fmap (renameExpFunctionCalls renameMap) me
+    n'
+      | me == Nothing = Map.findWithDefault n n renameMap
+      | otherwise = n
+    es' = map (renameExpFunctionCalls renameMap) es
 renameExpFunctionCalls renameMap (ExpVar me n) =
   case qualifiedMemberName me n of
     Just qn ->
@@ -1613,6 +1621,12 @@ renameExpTypeRefs renameMap (ExpName me n es) =
     (renameMemberQualifierTypeRefs renameMap <$> me)
     n
     (map (renameExpTypeRefs renameMap) es)
+renameExpTypeRefs renameMap (ExpNameAt me n lbl es) =
+  ExpNameAt
+    (renameMemberQualifierTypeRefs renameMap <$> me)
+    n
+    lbl
+    (map (renameExpTypeRefs renameMap) es)
 renameExpTypeRefs renameMap (ExpVar Nothing n) =
   ExpVar
     (sameNameConstructorQualifier renameMap n)
@@ -1720,9 +1734,10 @@ renameClassTypeRefs renameMap (Class bvs ctx n pvs mv sigs) =
     (map (renameSignatureTypeRefs renameMap) sigs)
 
 renameInstanceTypeRefs :: Map Name Name -> Instance -> Instance
-renameInstanceTypeRefs renameMap (Instance d vs ctx n pts mt fns) =
+renameInstanceTypeRefs renameMap (Instance d lbl vs ctx n pts mt fns) =
   Instance
     d
+    lbl
     (map (renameTyTypeRefs renameMap) vs)
     (map (renamePredTypeRefs renameMap) ctx)
     n
@@ -2218,6 +2233,13 @@ expFunctionRefs :: Exp -> [Name]
 expFunctionRefs (Lit _) = []
 expFunctionRefs (ExpAt _) = []
 expFunctionRefs (ExpName me n es) =
+  directRef ++ maybe [] expFunctionRefs me ++ concatMap expFunctionRefs es
+  where
+    directRef =
+      case me of
+        Nothing -> [n]
+        _ -> maybe [] pure (qualifiedMemberName me n)
+expFunctionRefs (ExpNameAt me n _ es) =
   directRef ++ maybe [] expFunctionRefs me ++ concatMap expFunctionRefs es
   where
     directRef =

@@ -8,13 +8,13 @@ forall a . class a : Eq {
 
 instance [dupLabel] word : Eq {
   function eq(x : word, y : word) -> Bool {
-    return True;
+    return Bool.True;
   }
 }
 
 instance [dupLabel] word : Eq {
   function eq(x : word, y : word) -> Bool {
-    return False;
+    return Bool.False;
   }
 }
 

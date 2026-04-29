@@ -10,8 +10,8 @@ forall a . class a : Eq {
 instance [strictEq] word : Eq {
   function eq(x : word, y : word) -> Bool {
     match primEqWord(x, y) {
-    | 0 => return False;
-    | _ => return True;
+    | 0 => return Bool.False;
+    | _ => return Bool.True;
     }
   }
 }
@@ -19,7 +19,7 @@ instance [strictEq] word : Eq {
 // Named instance: always equal (trivial equality)
 instance [trivialEq] word : Eq {
   function eq(x : word, y : word) -> Bool {
-    return True;
+    return Bool.True;
   }
 }
 

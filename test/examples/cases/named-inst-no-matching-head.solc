@@ -21,6 +21,6 @@ instance [shared] word : Pick(Bool) {
 
 contract NamedInstNoMatchingHead {
   function main() -> Bool {
-    return pick@{shared}(1, F);
+    return pick@{shared}(1, Flag.F);
   }
 }

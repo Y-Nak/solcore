@@ -9,8 +9,8 @@ forall a . class a : Eq {
 instance [myEq] word : Eq {
   function eq(x : word, y : word) -> Bool {
     match primEqWord(x, y) {
-    | 0 => return False;
-    | _ => return True;
+    | 0 => return Bool.False;
+    | _ => return Bool.True;
     }
   }
 }

@@ -8,15 +8,15 @@ forall a . class a : Eq {
 
 instance [shared] word : Eq {
   function eq(x : word, y : word) -> Bool {
-    return True;
+    return Bool.True;
   }
 }
 
 instance [shared] Bool : Eq {
   function eq(x : Bool, y : Bool) -> Bool {
     match x, y {
-    | True, True => return True;
-    | _, _ => return False;
+    | Bool.True, Bool.True => return Bool.True;
+    | _, _ => return Bool.False;
     }
   }
 }
@@ -24,7 +24,7 @@ instance [shared] Bool : Eq {
 contract NamedInstSharedLabel {
   function main() -> Bool {
     let x : Bool = eq@{shared}(1, 2);
-    let y : Bool = eq@{shared}(True, True);
+    let y : Bool = eq@{shared}(Bool.True, Bool.True);
     return y;
   }
 }

@@ -13,13 +13,13 @@ forall a . class a : Bar {
 
 instance [shared] word : Foo {
   function run(x : word) -> Bool {
-    return True;
+    return Bool.True;
   }
 }
 
 instance [shared] word : Bar {
   function run(x : word) -> Bool {
-    return False;
+    return Bool.False;
   }
 }
 
