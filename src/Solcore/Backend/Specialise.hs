@@ -221,12 +221,13 @@ addInstResolutions :: Instance Id -> SM ()
 addInstResolutions inst = forM_ (instFunctions inst) addMethod
   where
     addMethod fd = do
-      addMethodResolution (instName inst) (mainTy inst) fd
-      -- For named instances, also register under QualName lbl methodName
-      -- so that specExp can find the definition directly by label.
       case instLabel inst of
-        Nothing -> return ()
-        Just lbl -> addNamedInstMethodResolution lbl (mainTy inst) fd
+        Nothing ->
+          addMethodResolution (instName inst) (mainTy inst) fd
+        -- Named instances are explicit evidence and should not participate in
+        -- ordinary method resolution.
+        Just lbl ->
+          addNamedInstMethodResolution lbl (mainTy inst) fd
 
 -- Register a named-instance method under QualName lbl methodUnqualName.
 -- After type inference, method names are QualName className method; we
