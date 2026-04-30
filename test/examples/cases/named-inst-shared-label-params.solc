@@ -1,5 +1,5 @@
-// Reusing a label across the same class/head should work when params are
-// distinguished by explicit method arguments.
+// Reusing a named-instance declaration name in one module is rejected even
+// when the instance heads differ by weak parameters.
 
 data Bool = True | False;
 

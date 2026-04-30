@@ -93,7 +93,7 @@ data TcEnv
   { ctx :: Env, -- Variable environment
     instEnv :: InstTable, -- Instance Environment
     defaultEnv :: DefTable, -- Default instance environment
-    namedInstEnv :: Map Name [Instance Name], -- Named instance environment (by label)
+    namedInstEnv :: Map Name (Instance Name), -- Named instance environment (by declaration name)
     typeTable :: TypeTable, -- Type information environment
     synTable :: SynTable, -- Type synonym environment
     classTable :: ClassTable, -- Class information table

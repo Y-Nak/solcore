@@ -77,6 +77,7 @@ validateDuplicateNamespaces :: [S.TopDecl] -> Either String ()
 validateDuplicateNamespaces ds = do
   ensureNoDuplicateNames "type namespace" (topLevelTypeNames ds)
   ensureNoDuplicateNames "term namespace" (topLevelTermNames ds)
+  ensureNoDuplicateNames "named instance namespace" (topLevelNamedInstanceNames ds)
   mapM_ validateContractDuplicates [c | S.TContr c <- ds]
 
 validateContractDuplicates :: S.Contract -> Either String ()
@@ -102,6 +103,12 @@ topLevelTermNames = concatMap collect
     collect (S.TFunDef (S.FunDef sig _)) = [S.sigName sig]
     collect (S.TDataDef (S.DataTy tyCon _ cons)) =
       map (qualifiedConstructorName tyCon . S.constrName) cons
+    collect _ = []
+
+topLevelNamedInstanceNames :: [S.TopDecl] -> [Name]
+topLevelNamedInstanceNames = concatMap collect
+  where
+    collect (S.TInstDef (S.Instance _ (Just lbl) _ _ _ _ _ _)) = [lbl]
     collect _ = []
 
 contractTermNames :: [S.ContractDecl] -> [Name]
@@ -834,6 +841,7 @@ data DeclType
   | TTyCon
   | TTyVar
   | TModule
+  | TNamedInstance
   deriving (Eq, Show)
 
 data Env
@@ -947,13 +955,14 @@ addTopDecl (S.TExportDecl _) env = env
 addTopDecl (S.TInstDef (S.Instance _ (Just lbl) _ _ _ _ _ funs)) env =
   env
     { scopeEnv =
-        foldr
-          ( \fd ac ->
-              let qn = QualName lbl (pretty (S.sigName (S.funSignature fd)))
-               in Map.insert qn TFunction ac
-          )
-          (scopeEnv env)
-          funs
+        Map.insert lbl TNamedInstance $
+          foldr
+            ( \fd ac ->
+                let qn = QualName lbl (pretty (S.sigName (S.funSignature fd)))
+                 in Map.insert qn TFunction ac
+            )
+            (scopeEnv env)
+            funs
     }
 addTopDecl _ env = env
 
@@ -968,16 +977,15 @@ addQualifiedModules _ env = env
 
 resolveNamedCall :: Maybe (Exp Name) -> Name -> Name -> [Exp Name] -> ResolveM (Exp Name)
 resolveNamedCall me n lbl es = do
-  let qn = QualName lbl (pretty n)
-      args = maybe es (: es) me
-  dt <- lookupName qn
+  let args = maybe es (: es) me
+  dt <- lookupName lbl
   case dt of
-    Just TFunction -> pure (Call Nothing n (Just lbl) args)
+    Just TNamedInstance -> pure (Call Nothing n (Just lbl) args)
     _ ->
       throwError $
-        "Unknown named instance label '"
+        "Unknown named instance '"
           ++ pretty lbl
-          ++ "' for method '"
+          ++ "' for call '"
           ++ pretty n
           ++ "'"
 

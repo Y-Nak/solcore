@@ -1,4 +1,4 @@
-// Reusing the same named-instance label for different heads should work.
+// Reusing the same named-instance declaration name in one module is rejected.
 
 data Bool = True | False;
 

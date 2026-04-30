@@ -1087,12 +1087,14 @@ checkInstance idef@(Instance d lbl vs predCtx n ts t funs) =
           then addDefaultInstance n ninst
           else addInstance n ninst
       Just label -> do
-        -- Named instances: skip overlap check, register by label.
-        -- Reusing a label is allowed as long as the instance head differs.
-        existing <- askNamedInstances label
-        unless (all (differentNamedInstHead idef) existing) $
+        when d $
           throwError $
-            "Duplicate named instance label/head combination: " ++ pretty label
+            "Named default instances are not supported: " ++ pretty label
+        -- Named instances are declaration names, so the label is unique in scope.
+        existing <- askNamedInstance label
+        unless (isNothing existing) $
+          throwError $
+            "Duplicate named instance name: " ++ pretty label
         addNamedInstance label idef
 
 maybeExpandSynonym :: Ty -> TcM Ty
@@ -1342,10 +1344,13 @@ tcCallNamed :: Maybe (Exp Name) -> Name -> Name -> [Exp Name] -> TcM (Exp Id, [P
 tcCallNamed me n lbl args =
   do
     let callExpr = Call me n (Just lbl) args
-    namedInsts <- askNamedInstances lbl
-    when (null namedInsts) $
-      throwError $
-        "Unknown named instance label: " ++ pretty lbl
+    namedInst <-
+      askNamedInstance lbl >>= \mInst ->
+        case mInst of
+          Just inst -> pure inst
+          Nothing ->
+            throwError $
+              "Unknown named instance: " ++ pretty lbl
     mrecv <- mapM tcExp me
     (es', pss', ts') <- unzip3 <$> mapM tcExp args
     let recvArgs = maybe [] (\(e', _, _) -> [e']) mrecv
@@ -1353,40 +1358,20 @@ tcCallNamed me n lbl args =
         recvTys = maybe [] (\(_, _, ty0) -> [ty0]) mrecv
         allArgs = recvArgs ++ es'
         allTys = recvTys ++ ts'
-        methodInsts = filter (hasNamedMethod n) namedInsts
-    when (null methodInsts) $
+    unless (hasNamedMethod n namedInst) $
       throwError $
         unwords
           ["Method", pretty n, "not found in named instance", pretty lbl]
-    matches <- filterM (matchesNamedCall callExpr n lbl allTys) methodInsts
-    case matches of
-      [] ->
-        throwError $
-          unwords
-            [ "No named instance labelled",
-              pretty lbl,
-              "matches call to",
-              pretty n
-            ]
-      [inst] -> tcCallNamedWithInst callExpr n lbl recvPreds allArgs pss' allTys inst
-      _ ->
-        throwError $
-          unlines $
-            [ unwords
-                [ "Ambiguous named instance label",
-                  pretty lbl,
-                  "for method",
-                  pretty n
-                ],
-              "Matching heads:"
-            ]
-              ++ map (("  " ++) . pretty . namedInstPred) matches
-
-differentNamedInstHead :: Instance Name -> Instance Name -> Bool
-differentNamedInstHead inst inst' =
-  instName inst /= instName inst'
-    || mainTy inst /= mainTy inst'
-    || paramsTy inst /= paramsTy inst'
+    matches <- matchesNamedCall callExpr n lbl allTys namedInst
+    unless matches $
+      throwError $
+        unwords
+          [ "Named instance",
+            pretty lbl,
+            "does not match call to",
+            pretty n
+          ]
+    tcCallNamedWithInst callExpr n lbl recvPreds allArgs pss' allTys namedInst
 
 hasNamedMethod :: Name -> Instance Name -> Bool
 hasNamedMethod n inst =
@@ -1399,9 +1384,6 @@ findNamedMethod n = find (\fd -> sigName (funSignature fd) == n) . instFunctions
 splitNamedMethod :: Name -> (Maybe Name, Name)
 splitNamedMethod (QualName cls meth) = (Just cls, Name meth)
 splitNamedMethod n = (Nothing, n)
-
-namedInstPred :: Instance Name -> Pred
-namedInstPred inst = InCls (instName inst) (mainTy inst) (paramsTy inst)
 
 namedMethodScheme :: Name -> Name -> Instance Name -> TcM Scheme
 namedMethodScheme n lbl inst =

@@ -436,8 +436,8 @@ Expr : Name FunArgs                                {ExpName Nothing $1 $2}
      | '!' Expr                                    {ExpLNot $2 }
      | Conditional                                 {$1}
      | '@' Type                                    {ExpAt $2}
-     | Name '@{' identifier '}' '(' ExprCommaList ')' { ExpNameAt Nothing $1 (Name $3) $6 }
-     | Expr '.' Name '@{' identifier '}' '(' ExprCommaList ')' { ExpNameAt (Just $1) $3 (Name $5) $8 }
+     | Name '@{' TypeName '}' '(' ExprCommaList ')' { ExpNameAt Nothing $1 $3 $6 }
+     | Expr '.' Name '@{' TypeName '}' '(' ExprCommaList ')' { ExpNameAt (Just $1) $3 $5 $8 }
 
 Conditional :: { Exp }
 Conditional : 'if' Expr 'then' Expr 'else' Expr    {ExpCond $2 $4 $6}

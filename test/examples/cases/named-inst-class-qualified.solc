@@ -1,4 +1,4 @@
-// Class-qualified named calls should disambiguate instances sharing a label.
+// Class-qualified named calls should dispatch through the selected instance.
 
 data Bool = True | False;
 
@@ -10,13 +10,13 @@ forall a . class a : Bar {
   function run(x : a) -> Bool;
 }
 
-instance [shared] word : Foo {
+instance [fooShared] word : Foo {
   function run(x : word) -> Bool {
     return Bool.True;
   }
 }
 
-instance [shared] word : Bar {
+instance [barShared] word : Bar {
   function run(x : word) -> Bool {
     return Bool.False;
   }
@@ -24,8 +24,8 @@ instance [shared] word : Bar {
 
 contract NamedInstClassQualified {
   function main() -> Bool {
-    let x : Bool = Foo.run@{shared}(1);
-    let y : Bool = Bar.run@{shared}(1);
+    let x : Bool = Foo.run@{fooShared}(1);
+    let y : Bool = Bar.run@{barShared}(1);
     return y;
   }
 }
