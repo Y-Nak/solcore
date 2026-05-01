@@ -404,6 +404,7 @@ cases =
       runTestForFile "named-inst-basic.solc" caseFolder,
       runTestExpectingFailure "named-inst-ambiguous-unqualified.solc" caseFolder,
       runTestForFile "named-inst-class-qualified.solc" caseFolder,
+      runTestForFile "named-inst-constrained-call.solc" caseFolder,
       runTestExpectingFailure "named-inst-no-matching-head.solc" caseFolder,
       runTestExpectingFailure "named-inst-shared-label-params.solc" caseFolder,
       runTestForFile "named-inst-receiver.solc" caseFolder,
