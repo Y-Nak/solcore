@@ -46,7 +46,7 @@ data SpecState = SpecState
     spGlobalEnv :: TcEnv,
     splocalEnv :: Table Ty,
     spSubst :: TVSubst,
-    spNamedEvidence :: [(Name, Instance Name)],
+    spNamedEvidence :: [(ImplArg, Instance Name)],
     spDebug :: Bool,
     spNS :: NameSupply
   }
@@ -185,17 +185,22 @@ extSpSubst subst = modify $ \s -> s {spSubst = spSubst s <> subst}
 atCurrentSubst :: (HasTV a) => a -> SM a
 atCurrentSubst a = flip applytv a <$> getSpSubst
 
-withNamedEvidence :: Name -> SM a -> SM a
-withNamedEvidence lbl action = do
+withNamedEvidence :: ImplArg -> SM a -> SM a
+withNamedEvidence implArg action = do
   env <- gets spGlobalEnv
-  case Map.lookup lbl (namedInstEnv env) of
+  case Map.lookup (implArgName implArg) (namedInstEnv env) of
     Nothing -> action
     Just inst -> do
       saved <- gets spNamedEvidence
-      modify $ \s -> s {spNamedEvidence = (lbl, inst) : saved}
+      modify $ \s -> s {spNamedEvidence = (implArg, inst) : saved}
       result <- action
       modify $ \s -> s {spNamedEvidence = saved}
       pure result
+
+withNamedEvidences :: [ImplArg] -> SM a -> SM a
+withNamedEvidences [] action = action
+withNamedEvidences (implArg : implArgs) action =
+  withNamedEvidence implArg (withNamedEvidences implArgs action)
 
 addData :: DataTy -> SM ()
 addData dt = modify (\s -> s {spDataTable = Map.insert (dataName dt) dt (spDataTable s)})
@@ -372,10 +377,10 @@ explicitNamedEvidenceForCall i args ty =
       let funType = foldr (:->) ty' argTypes
           methName = Name meth
       evidences <- gets spNamedEvidence
-      pure $ fst <$> find (matchesNamedEvidence cls methName funType) evidences
+      pure $ implArgName . fst <$> find (matchesNamedEvidence cls methName funType) evidences
     Name _ -> pure Nothing
 
-matchesNamedEvidence :: Name -> Name -> Ty -> (Name, Instance Name) -> Bool
+matchesNamedEvidence :: Name -> Name -> Ty -> (ImplArg, Instance Name) -> Bool
 matchesNamedEvidence cls meth funType (_, inst) =
   instName inst == cls
     && instanceHasMethod meth inst
@@ -406,29 +411,33 @@ methodTypeMatches methodTy callTy =
 
 -- | `specExp` specialises an expression to given type
 specExp :: TcExp -> Ty -> SM TcExp
-specExp (Call Nothing i Nothing args) ty = do
+specExp (Call Nothing i [] args) ty = do
   -- debug ["> specExp (Call): ", pretty e, " : ", pretty (idType i), " ~> ", pretty ty]
   mlbl <- explicitNamedEvidenceForCall i args ty
   case mlbl of
-    Just lbl -> specExp (Call Nothing i (Just lbl) args) ty
+    Just lbl -> specExp (Call Nothing i [ImplArg Nothing lbl] args) ty
     Nothing -> do
       (i'', args') <- specCall i args ty
-      let e' = Call Nothing i'' Nothing args'
+      let e' = Call Nothing i'' [] args'
       -- debug ["< specExp (Call): ", pretty e']
       return e'
-specExp (Call Nothing i (Just lbl) args) ty = do
+specExp (Call Nothing i [implArg] args) ty = do
   -- A label can either select a named instance method directly, or supply
   -- explicit evidence to a constrained function call.
+  let lbl = implArgName implArg
   isNamedMethod <- namedEvidenceHasMethod lbl i
   (i'', args') <-
     if isNamedMethod
       then do
         let i' = i {idName = QualName lbl (methodNameString (idName i))}
         specCall i' args ty
-      else specCallWithEvidence (Just lbl) i args ty
-  let e' = Call Nothing i'' Nothing args'
+      else specCallWithEvidence [implArg] i args ty
+  let e' = Call Nothing i'' [] args'
   -- debug ["< specExp (Call): ", pretty e']
   return e'
+specExp (Call Nothing i implArgs args) ty =
+  specCallWithEvidence implArgs i args ty >>= \(i'', args') ->
+    pure (Call Nothing i'' [] args')
 specExp e@(Con i es) ty = do
   debug ["> specConApp: ", pretty e, " : ", pretty (typeOfTcExp e), " ~> ", pretty ty]
   (i', es') <- specConApp i es ty
@@ -468,11 +477,11 @@ specConApp i@(Id _n conTy) args ty = do
 -- | Specialise a function call
 -- given actual arguments and the expected result type
 specCall :: Id -> [TcExp] -> Ty -> SM (Id, [TcExp])
-specCall = specCallWithEvidence Nothing
+specCall = specCallWithEvidence []
 
-specCallWithEvidence :: Maybe Name -> Id -> [TcExp] -> Ty -> SM (Id, [TcExp])
+specCallWithEvidence :: [ImplArg] -> Id -> [TcExp] -> Ty -> SM (Id, [TcExp])
 specCallWithEvidence _ i@(Id (Name "revert") _) args _ = pure (i, args) -- FIXME
-specCallWithEvidence mEvidence i args ty = do
+specCallWithEvidence implArgs i args ty = do
   i' <- atCurrentSubst i
   ty' <- atCurrentSubst ty
   -- debug ["> specCall: ", pretty i', show args, " : ", pretty ty']
@@ -490,10 +499,8 @@ specCallWithEvidence mEvidence i args ty = do
       extSpSubst phi
       subst <- getSpSubst
       let ty'' = applytv subst fty
-      ensureClosed ty'' (Call Nothing i Nothing args) subst
-      name' <- case mEvidence of
-        Just lbl -> withNamedEvidence lbl (specFunDef fd)
-        Nothing -> specFunDef fd
+      ensureClosed ty'' (Call Nothing i [] args) subst
+      name' <- withNamedEvidences implArgs (specFunDef fd)
       debug ["< specCall: ", pretty name', " : ", show ty'']
       args'' <- atCurrentSubst args'
       return (Id name' ty'', args'')

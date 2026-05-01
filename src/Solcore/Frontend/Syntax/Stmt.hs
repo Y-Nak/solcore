@@ -32,6 +32,13 @@ paramName :: Param a -> a
 paramName (Typed n _) = n
 paramName (Untyped n) = n
 
+data ImplArg
+  = ImplArg
+  { implArgSlot :: Maybe Name,
+    implArgName :: Name
+  }
+  deriving (Eq, Ord, Show, Data, Typeable)
+
 -- definition of the expression syntax
 
 data Exp a
@@ -39,7 +46,7 @@ data Exp a
   | Con a [Exp a] -- data type constructor
   | FieldAccess (Maybe (Exp a)) a -- field access
   | Lit Literal -- literal
-  | Call (Maybe (Exp a)) a (Maybe Name) [Exp a] -- function call (third arg = instance label)
+  | Call (Maybe (Exp a)) a [ImplArg] [Exp a] -- function call (third arg = explicit instance args)
   | Lam [Param a] (Body a) (Maybe Ty) -- lambda-abstraction
   | TyExp (Exp a) Ty -- type annotated expression
   | Cond (Exp a) (Exp a) (Exp a) -- conditional expression

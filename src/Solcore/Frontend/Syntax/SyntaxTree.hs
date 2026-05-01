@@ -254,6 +254,13 @@ data Param
   | Untyped Name
   deriving (Eq, Ord, Show, Data, Typeable)
 
+data ImplArg
+  = ImplArg
+  { implArgSlot :: Maybe Name,
+    implArgName :: Name
+  }
+  deriving (Eq, Ord, Show, Data, Typeable)
+
 -- expression syntax
 
 data Exp
@@ -280,9 +287,9 @@ data Exp
   | ExpLNot Exp -- ! e
   | ExpCond Exp Exp Exp -- if e1 then e2 else e3
   | ExpAt Ty -- proxy sugar
-  | -- | ExpNameAt receiver methodName instanceLabel args
-    --   Represents receiver.method@{label}(args) or method@{label}(args)
-    ExpNameAt (Maybe Exp) Name Name [Exp]
+  | -- | ExpNameAt receiver methodName explicitInstanceArgs args
+    --   Represents receiver.method@{impl}(args) or method@{slot = impl}(args)
+    ExpNameAt (Maybe Exp) Name [ImplArg] [Exp]
   deriving (Eq, Ord, Show, Data, Typeable)
 
 -- pattern matching equations

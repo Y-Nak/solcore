@@ -436,11 +436,19 @@ Expr : Name FunArgs                                {ExpName Nothing $1 $2}
      | '!' Expr                                    {ExpLNot $2 }
      | Conditional                                 {$1}
      | '@' Type                                    {ExpAt $2}
-     | Name '@{' TypeName '}' '(' ExprCommaList ')' { ExpNameAt Nothing $1 $3 $6 }
-     | Expr '.' Name '@{' TypeName '}' '(' ExprCommaList ')' { ExpNameAt (Just $1) $3 $5 $8 }
+     | Name '@{' ImplArgList '}' '(' ExprCommaList ')' { ExpNameAt Nothing $1 $3 $6 }
+     | Expr '.' Name '@{' ImplArgList '}' '(' ExprCommaList ')' { ExpNameAt (Just $1) $3 $5 $8 }
 
 Conditional :: { Exp }
 Conditional : 'if' Expr 'then' Expr 'else' Expr    {ExpCond $2 $4 $6}
+
+ImplArgList :: { [ImplArg] }
+ImplArgList : ImplArg                              {[$1]}
+            | ImplArg ',' ImplArgList              {$1 : $3}
+
+ImplArg :: { ImplArg }
+ImplArg : TypeName                                 {ImplArg Nothing $1}
+        | Name '=' TypeName                        {ImplArg (Just $1) $3}
 
 TupleArgs :: { [Exp] }
 TupleArgs : Expr ',' Expr                          {[$1, $3]}

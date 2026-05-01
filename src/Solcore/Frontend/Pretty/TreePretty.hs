@@ -332,11 +332,11 @@ instance Pretty Exp where
       <> parensWhen
         (not $ null es)
         (commaSep (map ppr es))
-  ppr (ExpNameAt me n lbl es) =
+  ppr (ExpNameAt me n implArgs es) =
     maybe empty (\e -> ppr e <> char '.') me
       <> ppr n
       <> text "@{"
-      <> ppr lbl
+      <> commaSep (map ppr implArgs)
       <> char '}'
       <> parens (commaSep (map ppr es))
   ppr (ExpVar me v) =
@@ -397,6 +397,10 @@ instance Pretty Exp where
       ]
   ppr (ExpAt t) =
     text "@" <> ppr t
+
+instance Pretty ImplArg where
+  ppr (ImplArg Nothing implName) = ppr implName
+  ppr (ImplArg (Just slot) implName) = ppr slot <+> equals <+> ppr implName
 
 pprE :: Maybe Exp -> Doc
 pprE Nothing = ""

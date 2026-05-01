@@ -360,8 +360,8 @@ instance (Pretty a) => Pretty (Exp a) where
             then empty
             else (parens (nest 1 $ commaSep $ map ppr es))
   ppr (Lit l) = ppr l
-  ppr (Call e n lbl es) =
-    pprE e <> ppr n <> pprCallLabel lbl <> (parens (nest 1 $ commaSep $ map ppr es))
+  ppr (Call e n implArgs es) =
+    pprE e <> ppr n <> pprCallImplArgs implArgs <> (parens (nest 1 $ commaSep $ map ppr es))
   ppr (Lam args bd _) =
     text "lam"
       <+> pprParams args
@@ -380,9 +380,13 @@ pprE :: (Pretty a) => Maybe (Exp a) -> Doc
 pprE Nothing = ""
 pprE (Just e) = ppr e <> text "."
 
-pprCallLabel :: Maybe Name -> Doc
-pprCallLabel Nothing = empty
-pprCallLabel (Just lbl) = text "@{" <> ppr lbl <> text "}"
+pprCallImplArgs :: [ImplArg] -> Doc
+pprCallImplArgs [] = empty
+pprCallImplArgs implArgs = text "@{" <> commaSep (map ppr implArgs) <> text "}"
+
+instance Pretty ImplArg where
+  ppr (ImplArg Nothing implName) = ppr implName
+  ppr (ImplArg (Just slot) implName) = ppr slot <+> equals <+> ppr implName
 
 instance (Pretty a) => Pretty (Pat a) where
   ppr (PVar n) =

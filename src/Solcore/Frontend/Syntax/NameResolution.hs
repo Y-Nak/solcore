@@ -591,7 +591,7 @@ instance Resolve S.Exp where
       case (me', dt) of
         -- normal function call
         (Nothing, Just TFunction) ->
-          pure (Call Nothing n Nothing es')
+          pure (Call Nothing n [] es')
         (Nothing, Just TTyCon) -> do
           sameName <- isSameNameConstructor n
           if sameName
@@ -611,7 +611,7 @@ instance Resolve S.Exp where
           let qn = QualName c (pretty n)
           qdt <- lookupName qn
           case qdt of
-            Just TFunction -> pure (Call Nothing qn Nothing es')
+            Just TFunction -> pure (Call Nothing qn [] es')
             Just TDataCon -> Con <$> resolveQualifiedConstructorName c n <*> pure es'
             _ -> undefinedName n
         -- class functions
@@ -620,11 +620,11 @@ instance Resolve S.Exp where
           let qn = QualName c (pretty n)
           case ct of
             Just TClass ->
-              pure (Call Nothing qn Nothing es')
+              pure (Call Nothing qn [] es')
             Just TModule -> do
               cf <- lookupName qn
               case cf of
-                Just TFunction -> pure (Call Nothing qn Nothing es')
+                Just TFunction -> pure (Call Nothing qn [] es')
                 Just TDataCon -> Con <$> resolveQualifiedConstructorName c n <*> pure es'
                 _ -> undefinedName n
             _ -> undefinedName c
@@ -634,9 +634,9 @@ instance Resolve S.Exp where
           cf <- lookupName qn
           case (ct, cf) of
             (Just TClass, Just TFunction) ->
-              pure (Call Nothing qn Nothing es')
+              pure (Call Nothing qn [] es')
             (_, Just TFunction) ->
-              pure (Call Nothing qn Nothing es')
+              pure (Call Nothing qn [] es')
             (_, Just TDataCon) ->
               Con <$> resolveQualifiedConstructorName c n <*> pure es'
             _ -> do
@@ -650,13 +650,13 @@ instance Resolve S.Exp where
           let qn = QualName c (pretty n)
           cf <- gets (Map.lookup qn . scopeEnv)
           case cf of
-            Just TFunction -> pure (Call Nothing qn Nothing es')
+            Just TFunction -> pure (Call Nothing qn [] es')
             _ -> undefinedName n
         -- variables
         (_, Just TLocalVar) ->
-          pure (Call Nothing n Nothing es')
+          pure (Call Nothing n [] es')
         (_, Just TParameter) ->
-          pure (Call Nothing n Nothing es')
+          pure (Call Nothing n [] es')
         -- error
         _ -> do
           sameName <- isSameNameConstructor n
@@ -672,31 +672,31 @@ instance Resolve S.Exp where
       e1' <- resolve e1 `wrapError` c
       e2' <- resolve e2 `wrapError` c
       let fun = QualName (Name "Add") "add"
-      pure $ Call Nothing fun Nothing [e1', e2']
+      pure $ Call Nothing fun [] [e1', e2']
   resolve c@(S.ExpMinus e1 e2) =
     do
       e1' <- resolve e1 `wrapError` c
       e2' <- resolve e2 `wrapError` c
       let fun = QualName (Name "Sub") "sub"
-      pure $ Call Nothing fun Nothing [e1', e2']
+      pure $ Call Nothing fun [] [e1', e2']
   resolve c@(S.ExpTimes e1 e2) =
     do
       e1' <- resolve e1 `wrapError` c
       e2' <- resolve e2 `wrapError` c
       let fun = QualName (Name "Mul") "mul"
-      pure $ Call Nothing fun Nothing [e1', e2']
+      pure $ Call Nothing fun [] [e1', e2']
   resolve c@(S.ExpDivide e1 e2) =
     do
       e1' <- resolve e1 `wrapError` c
       e2' <- resolve e2 `wrapError` c
       let fun = QualName (Name "Div") "div"
-      pure $ Call Nothing fun Nothing [e1', e2']
+      pure $ Call Nothing fun [] [e1', e2']
   resolve c@(S.ExpModulo e1 e2) =
     do
       e1' <- resolve e1 `wrapError` c
       e2' <- resolve e2 `wrapError` c
       let fun = QualName (Name "Mod") "mod"
-      pure $ Call Nothing fun Nothing [e1', e2']
+      pure $ Call Nothing fun [] [e1', e2']
   resolve c@(S.ExpIndexed array idx) = do
     arr' <- resolve array `wrapError` c
     idx' <- resolve idx `wrapError` c
@@ -704,40 +704,40 @@ instance Resolve S.Exp where
   resolve c@(S.ExpLT e1 e2) = do
     e1' <- resolve e1 `wrapError` c
     e2' <- resolve e2 `wrapError` c
-    pure $ Call Nothing (Name "lt") Nothing [e1', e2']
+    pure $ Call Nothing (Name "lt") [] [e1', e2']
   resolve c@(S.ExpGT e1 e2) = do
     e1' <- resolve e1 `wrapError` c
     e2' <- resolve e2 `wrapError` c
     let fun = QualName (Name "Ord") "gt"
-    pure $ Call Nothing fun Nothing [e1', e2']
+    pure $ Call Nothing fun [] [e1', e2']
   resolve c@(S.ExpLE e1 e2) = do
     e1' <- resolve e1 `wrapError` c
     e2' <- resolve e2 `wrapError` c
-    pure $ Call Nothing (Name "le") Nothing [e1', e2']
+    pure $ Call Nothing (Name "le") [] [e1', e2']
   resolve c@(S.ExpGE e1 e2) = do
     e1' <- resolve e1 `wrapError` c
     e2' <- resolve e2 `wrapError` c
-    pure $ Call Nothing (Name "ge") Nothing [e1', e2']
+    pure $ Call Nothing (Name "ge") [] [e1', e2']
   resolve c@(S.ExpEE e1 e2) = do
     e1' <- resolve e1 `wrapError` c
     e2' <- resolve e2 `wrapError` c
     let fun = QualName (Name "Eq") "eq"
-    pure $ Call Nothing fun Nothing [e1', e2']
+    pure $ Call Nothing fun [] [e1', e2']
   resolve c@(S.ExpNE e1 e2) = do
     e1' <- resolve e1 `wrapError` c
     e2' <- resolve e2 `wrapError` c
-    pure $ Call Nothing (Name "ne") Nothing [e1', e2']
+    pure $ Call Nothing (Name "ne") [] [e1', e2']
   resolve c@(S.ExpLAnd e1 e2) = do
     e1' <- resolve e1 `wrapError` c
     e2' <- resolve e2 `wrapError` c
-    pure $ Call Nothing (Name "and") Nothing [e1', e2']
+    pure $ Call Nothing (Name "and") [] [e1', e2']
   resolve c@(S.ExpLOr e1 e2) = do
     e1' <- resolve e1 `wrapError` c
     e2' <- resolve e2 `wrapError` c
-    pure $ Call Nothing (Name "or") Nothing [e1', e2']
+    pure $ Call Nothing (Name "or") [] [e1', e2']
   resolve c@(S.ExpLNot e) = do
     e' <- resolve e `wrapError` c
-    pure $ Call Nothing (Name "not") Nothing [e']
+    pure $ Call Nothing (Name "not") [] [e']
   resolve (S.ExpCond e1 e2 e3) =
     Cond <$> resolve e1 <*> resolve e2 <*> resolve e3
   resolve (S.ExpAt t) = do
@@ -747,9 +747,10 @@ instance Resolve S.Exp where
           (Con (Name "Proxy") [])
           (TyCon (Name "Proxy") [t'])
       )
-  resolve x@(S.ExpNameAt me n lbl es) = do
+  resolve x@(S.ExpNameAt me n implArgs es) = do
     me' <- resolve me `wrapError` x
     es' <- resolve es `wrapError` x
+    implArgs' <- mapM resolveImplArg implArgs `wrapError` x
     case me' of
       Just (Var c) -> do
         ct <- lookupName c
@@ -758,10 +759,10 @@ instance Resolve S.Exp where
             let qn = QualName c (pretty n)
             cf <- gets (Map.lookup qn . scopeEnv)
             case cf of
-              Just TFunction -> pure (Call Nothing qn (Just lbl) es')
+              Just TFunction -> pure (Call Nothing qn implArgs' es')
               _ -> undefinedName n
-          _ -> resolveNamedCall me' n lbl es'
-      _ -> resolveNamedCall me' n lbl es'
+          _ -> resolveNamedCall me' n implArgs' es'
+      _ -> resolveNamedCall me' n implArgs' es'
 
 instance Resolve S.Literal where
   type Result S.Literal = Literal
@@ -975,19 +976,21 @@ addQualifiedModules (QualName qualifier _) env =
   foldr addModuleName env (modulePrefixes qualifier)
 addQualifiedModules _ env = env
 
-resolveNamedCall :: Maybe (Exp Name) -> Name -> Name -> [Exp Name] -> ResolveM (Exp Name)
-resolveNamedCall me n lbl es = do
-  let args = maybe es (: es) me
-  dt <- lookupName lbl
+resolveImplArg :: S.ImplArg -> ResolveM ImplArg
+resolveImplArg (S.ImplArg slot implName) = do
+  dt <- lookupName implName
   case dt of
-    Just TNamedInstance -> pure (Call Nothing n (Just lbl) args)
+    Just TNamedInstance -> pure (ImplArg slot implName)
     _ ->
       throwError $
         "Unknown named instance '"
-          ++ pretty lbl
-          ++ "' for call '"
-          ++ pretty n
+          ++ pretty implName
           ++ "'"
+
+resolveNamedCall :: Maybe (Exp Name) -> Name -> [ImplArg] -> [Exp Name] -> ResolveM (Exp Name)
+resolveNamedCall me n implArgs es = do
+  let args = maybe es (: es) me
+  pure (Call Nothing n implArgs args)
 
 -- definition of a monad for name resolution
 

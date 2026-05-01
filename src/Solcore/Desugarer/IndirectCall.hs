@@ -2,7 +2,6 @@ module Solcore.Desugarer.IndirectCall where
 
 import Control.Monad.State
 import Data.Map qualified as Map
-import Data.Maybe (isJust)
 import Solcore.Frontend.Pretty.SolcorePretty
 import Solcore.Frontend.Syntax
 import Solcore.Frontend.TypeInference.TcEnv (primCtx)
@@ -95,19 +94,19 @@ instance Desugar (Exp Name) where
     Lam ps <$> desugar bd <*> pure t
   desugar (TyExp e t) =
     flip TyExp t <$> desugar e
-  desugar (Call m n lbl es) =
+  desugar (Call m n implArgs es) =
     do
       m' <- desugar m
       es' <- desugar es
       b <- isDirectCall n
       let qn = QualName invokableName "invoke"
           args' = [Var n, indirectArgs es']
-      -- Named instance calls (Just lbl) are always direct: no defunctionalization
-      if b || isJust lbl
+      -- Explicit instance calls are always direct: no defunctionalization.
+      if b || not (null implArgs)
         then
-          pure $ Call m' n lbl es'
+          pure $ Call m' n implArgs es'
         else
-          pure $ Call Nothing qn Nothing args'
+          pure $ Call Nothing qn [] args'
   desugar (Cond e1 e2 e3) =
     Cond <$> desugar e1 <*> desugar e2 <*> desugar e3
   desugar x = pure x

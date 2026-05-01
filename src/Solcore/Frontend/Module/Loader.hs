@@ -1529,8 +1529,8 @@ renameExpFunctionCalls renameMap (ExpName me n es) =
       | me == Nothing = Map.findWithDefault n n renameMap
       | otherwise = n
     es' = map (renameExpFunctionCalls renameMap) es
-renameExpFunctionCalls renameMap (ExpNameAt me n lbl es) =
-  ExpNameAt me' n' lbl es'
+renameExpFunctionCalls renameMap (ExpNameAt me n implArgs es) =
+  ExpNameAt me' n' implArgs es'
   where
     me' = fmap (renameExpFunctionCalls renameMap) me
     n'
@@ -1698,11 +1698,11 @@ renameExpTypeRefs renameMap (ExpName me n es) =
     (renameMemberQualifierTypeRefs renameMap <$> me)
     n
     (map (renameExpTypeRefs renameMap) es)
-renameExpTypeRefs renameMap (ExpNameAt me n lbl es) =
+renameExpTypeRefs renameMap (ExpNameAt me n implArgs es) =
   ExpNameAt
     (renameMemberQualifierTypeRefs renameMap <$> me)
     n
-    lbl
+    implArgs
     (map (renameExpTypeRefs renameMap) es)
 renameExpTypeRefs renameMap (ExpVar Nothing n) =
   ExpVar

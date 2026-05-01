@@ -409,6 +409,7 @@ cases =
       runTestExpectingFailure "named-inst-shared-label-params.solc" caseFolder,
       runTestForFile "named-inst-receiver.solc" caseFolder,
       runTestExpectingFailure "named-inst-shared-label.solc" caseFolder,
+      runTestForFile "named-inst-slot-call.solc" caseFolder,
       runTestForFile "named-inst-two-instances.solc" caseFolder,
       runTestExpectingFailure "named-inst-unknown-label.solc" caseFolder,
       runTestExpectingFailure "named-inst-dup-label.solc" caseFolder,

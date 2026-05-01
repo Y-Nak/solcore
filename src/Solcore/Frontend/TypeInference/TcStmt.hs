@@ -4,6 +4,7 @@ import Common.Pretty
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Char (toLower)
 import Data.Generics hiding (Constr)
 import Data.List
 import Data.Map qualified as Map
@@ -317,10 +318,10 @@ tcExpWithExpected _ (FieldAccess (Just e) n) =
     s <- askField tn n
     (ps' :=> t') <- freshInst s
     withCurrentSubst (FieldAccess (Just e') (Id n t'), ps ++ ps', t')
-tcExpWithExpected _ ex@(Call me n Nothing args) =
+tcExpWithExpected _ ex@(Call me n [] args) =
   tcCall me n args `wrapError` ex
-tcExpWithExpected _ ex@(Call me n (Just lbl) args) =
-  tcCallNamed me n lbl args `wrapError` ex
+tcExpWithExpected _ ex@(Call me n implArgs args) =
+  tcCallNamed me n implArgs args `wrapError` ex
 tcExpWithExpected _ (Lam args bd _) =
   do
     (args', schs, ts') <- tcArgs args
@@ -1311,7 +1312,7 @@ tcBodyWithExpectedReturn mExpectedReturn (s : ss) =
 tcCall :: Maybe (Exp Name) -> Name -> [Exp Name] -> TcM (Exp Id, [Pred], Ty)
 tcCall Nothing n args =
   do
-    s <- askEnv n `wrapError` (Call Nothing n Nothing args)
+    s <- askEnv n `wrapError` (Call Nothing n [] args)
     (ps :=> t) <- freshInst s
     t' <- freshTyVar
     expectedArgTys <- mapM (const freshTyVar) args
@@ -1323,11 +1324,11 @@ tcCall Nothing n args =
     _ <- extSubst s1
     let ps' = foldr union [] (ps : pss')
         t1 = funtype ts' t'
-    withCurrentSubst (Call Nothing (Id n t1) Nothing es', ps', t')
+    withCurrentSubst (Call Nothing (Id n t1) [] es', ps', t')
 tcCall (Just e) n args =
   do
     (e', ps, _) <- tcExp e
-    s <- askEnv n `wrapError` (Call (Just e) n Nothing args)
+    s <- askEnv n `wrapError` (Call (Just e) n [] args)
     (ps1 :=> t) <- freshInst s
     t' <- freshTyVar
     expectedArgTys <- mapM (const freshTyVar) args
@@ -1338,80 +1339,100 @@ tcCall (Just e) n args =
     s' <- unify (foldr (:->) t' ts') t
     _ <- extSubst s'
     let ps' = foldr union [] ((ps ++ ps1) : pss')
-    withCurrentSubst (Call (Just e') (Id n t') Nothing es', ps', t')
+    withCurrentSubst (Call (Just e') (Id n t') [] es', ps', t')
 
-tcCallNamed :: Maybe (Exp Name) -> Name -> Name -> [Exp Name] -> TcM (Exp Id, [Pred], Ty)
-tcCallNamed me n lbl args =
+type ResolvedImplArg = (ImplArg, Instance Name)
+
+tcCallNamed :: Maybe (Exp Name) -> Name -> [ImplArg] -> [Exp Name] -> TcM (Exp Id, [Pred], Ty)
+tcCallNamed me n implArgs args =
   do
-    let callExpr = Call me n (Just lbl) args
-    namedInst <-
-      askNamedInstance lbl >>= \mInst ->
-        case mInst of
-          Just inst -> pure inst
-          Nothing ->
+    let callExpr = Call me n implArgs args
+    resolvedImplArgs <- mapM resolveNamedImplArg implArgs
+    case resolvedImplArgs of
+      [(ImplArg _ lbl, namedInst)]
+        | hasNamedMethod n namedInst -> do
+          mrecv <- mapM tcExp me
+          (es', pss', ts') <- unzip3 <$> mapM tcExp args
+          let recvArgs = maybe [] (\(e', _, _) -> [e']) mrecv
+              recvPreds = maybe [] (\(_, ps0, _) -> ps0) mrecv
+              recvTys = maybe [] (\(_, _, ty0) -> [ty0]) mrecv
+              allArgs = recvArgs ++ es'
+              allTys = recvTys ++ ts'
+          matches <- matchesNamedCall callExpr n lbl allTys namedInst
+          unless matches $
             throwError $
-              "Unknown named instance: " ++ pretty lbl
-    if hasNamedMethod n namedInst
-      then do
-        mrecv <- mapM tcExp me
-        (es', pss', ts') <- unzip3 <$> mapM tcExp args
-        let recvArgs = maybe [] (\(e', _, _) -> [e']) mrecv
-            recvPreds = maybe [] (\(_, ps0, _) -> ps0) mrecv
-            recvTys = maybe [] (\(_, _, ty0) -> [ty0]) mrecv
-            allArgs = recvArgs ++ es'
-            allTys = recvTys ++ ts'
-        matches <- matchesNamedCall callExpr n lbl allTys namedInst
-        unless matches $
-          throwError $
-            unwords
-              [ "Named instance",
-                pretty lbl,
-                "does not match call to",
-                pretty n
-              ]
-        tcCallNamedWithInst callExpr n lbl recvPreds allArgs pss' allTys namedInst
-      else tcCallWithNamedEvidence callExpr me n lbl args namedInst
+              unwords
+                [ "Named instance",
+                  pretty lbl,
+                  "does not match call to",
+                  pretty n
+                ]
+          tcCallNamedWithInst callExpr n lbl recvPreds allArgs pss' allTys namedInst
+      _ -> tcCallWithNamedEvidence callExpr me n args resolvedImplArgs
+
+resolveNamedImplArg :: ImplArg -> TcM ResolvedImplArg
+resolveNamedImplArg implArg@(ImplArg _ implName) =
+  askNamedInstance implName >>= \mInst ->
+    case mInst of
+      Just inst -> pure (implArg, inst)
+      Nothing ->
+        throwError $
+          "Unknown named instance: " ++ pretty implName
 
 tcCallWithNamedEvidence ::
   Exp Name ->
   Maybe (Exp Name) ->
   Name ->
-  Name ->
   [Exp Name] ->
-  Instance Name ->
+  [ResolvedImplArg] ->
   TcM (Exp Id, [Pred], Ty)
-tcCallWithNamedEvidence callExpr me n lbl args inst =
+tcCallWithNamedEvidence callExpr me n args resolvedImplArgs =
   do
     (call, ps, ty) <- tcCall me n args
-    matching <- catMaybes <$> mapM (namedInstSolvesWanted inst) ps
-    case matching of
-      [(p, instPreds, evidenceSubst)] ->
-        case call of
-          Call me' i Nothing args' -> do
-            _ <- extSubst evidenceSubst
-            let ps' = apply evidenceSubst (instPreds ++ delete p ps)
-            withCurrentSubst (Call me' i (Just lbl) args', ps', ty)
-          _ ->
-            throwError $ "Internal error: expected a call while checking " ++ pretty callExpr
-      [] ->
-        throwError $
-          unwords
-            [ "Named instance",
-              pretty lbl,
-              "does not match any wanted constraint for",
-              pretty n
-            ]
+    (instPreds, evidenceSubst, remainingPs) <- solveNamedImplArgs n ps resolvedImplArgs
+    case call of
+      Call me' i [] args' -> do
+        _ <- extSubst evidenceSubst
+        let ps' = apply evidenceSubst (instPreds ++ remainingPs)
+        withCurrentSubst (Call me' i (map fst resolvedImplArgs) args', ps', ty)
       _ ->
-        throwError $
-          unlines
-            [ unwords
-                [ "Named instance",
-                  pretty lbl,
-                  "matches multiple wanted constraints for",
-                  pretty n
-                ],
-              "Use an explicit constraint slot to disambiguate."
-            ]
+        throwError $ "Internal error: expected a call while checking " ++ pretty callExpr
+
+solveNamedImplArgs :: Name -> [Pred] -> [ResolvedImplArg] -> TcM ([Pred], Subst, [Pred])
+solveNamedImplArgs _ ps [] = pure ([], mempty, ps)
+solveNamedImplArgs n ps ((implArg, inst) : rest) = do
+  matching <- catMaybes <$> mapM (namedImplArgSolvesWanted implArg inst) ps
+  case matching of
+    [(p, instPreds, evidenceSubst)] -> do
+      let psNext = apply evidenceSubst (delete p ps)
+      (restInstPreds, restSubst, remainingPs) <- solveNamedImplArgs n psNext rest
+      let combinedSubst = restSubst <> evidenceSubst
+      pure (apply restSubst instPreds ++ restInstPreds, combinedSubst, remainingPs)
+    [] ->
+      throwError $
+        unwords
+          [ "Named instance",
+            pretty (implArgName implArg),
+            "does not match any wanted constraint for",
+            pretty n
+          ]
+    _ ->
+      throwError $
+        unlines
+          [ unwords
+              [ "Named instance",
+                pretty (implArgName implArg),
+                "matches multiple wanted constraints for",
+                pretty n
+              ],
+            "Use an explicit constraint slot to disambiguate."
+          ]
+namedImplArgSolvesWanted :: ImplArg -> Instance Name -> Pred -> TcM (Maybe (Pred, [Pred], Subst))
+namedImplArgSolvesWanted implArg inst wanted
+  | Just slot <- implArgSlot implArg,
+    not (slotMatchesPred slot wanted) =
+      pure Nothing
+  | otherwise = namedInstSolvesWanted inst wanted
 
 namedInstSolvesWanted :: Instance Name -> Pred -> TcM (Maybe (Pred, [Pred], Subst))
 namedInstSolvesWanted inst wanted =
@@ -1433,6 +1454,24 @@ solveNamedInstPred (InCls c t ts) (InCls c' t' ts')
   | c == c' = do
       mgu (t : ts) (t' : ts')
 solveNamedInstPred _ _ = throwError "Named instance does not solve wanted predicate"
+
+slotMatchesPred :: Name -> Pred -> Bool
+slotMatchesPred slot (InCls cls _ _) = slot `elem` classSlotNames cls
+slotMatchesPred _ _ = False
+
+classSlotNames :: Name -> [Name]
+classSlotNames cls =
+  nub [Name baseName, Name (lowerFirst baseName)]
+  where
+    baseName = nameLeaf cls
+
+nameLeaf :: Name -> String
+nameLeaf (Name s) = s
+nameLeaf (QualName _ s) = s
+
+lowerFirst :: String -> String
+lowerFirst [] = []
+lowerFirst (c : cs) = toLower c : cs
 
 hasNamedMethod :: Name -> Instance Name -> Bool
 hasNamedMethod n inst =
@@ -1511,7 +1550,7 @@ tcCallNamedWithInst callExpr n lbl recvPreds allArgs pss' allTys inst =
     _ <- extSubst s'
     let ps' = foldr union [] (ps : recvPreds : pss')
         t1 = funtype allTys t'
-    withCurrentSubst (Call Nothing (Id n t1) (Just lbl) allArgs, ps', t')
+    withCurrentSubst (Call Nothing (Id n t1) [ImplArg Nothing lbl] allArgs, ps', t')
 
 tcParam :: Param Name -> TcM (Param Id)
 tcParam (Typed n t) =
