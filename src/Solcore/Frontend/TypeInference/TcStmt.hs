@@ -1351,23 +1351,23 @@ tcCallNamed me n implArgs args =
     case resolvedImplArgs of
       [(ImplArg _ lbl, namedInst)]
         | hasNamedMethod n namedInst -> do
-          mrecv <- mapM tcExp me
-          (es', pss', ts') <- unzip3 <$> mapM tcExp args
-          let recvArgs = maybe [] (\(e', _, _) -> [e']) mrecv
-              recvPreds = maybe [] (\(_, ps0, _) -> ps0) mrecv
-              recvTys = maybe [] (\(_, _, ty0) -> [ty0]) mrecv
-              allArgs = recvArgs ++ es'
-              allTys = recvTys ++ ts'
-          matches <- matchesNamedCall callExpr n lbl allTys namedInst
-          unless matches $
-            throwError $
-              unwords
-                [ "Named instance",
-                  pretty lbl,
-                  "does not match call to",
-                  pretty n
-                ]
-          tcCallNamedWithInst callExpr n lbl recvPreds allArgs pss' allTys namedInst
+            mrecv <- mapM tcExp me
+            (es', pss', ts') <- unzip3 <$> mapM tcExp args
+            let recvArgs = maybe [] (\(e', _, _) -> [e']) mrecv
+                recvPreds = maybe [] (\(_, ps0, _) -> ps0) mrecv
+                recvTys = maybe [] (\(_, _, ty0) -> [ty0]) mrecv
+                allArgs = recvArgs ++ es'
+                allTys = recvTys ++ ts'
+            matches <- matchesNamedCall callExpr n lbl allTys namedInst
+            unless matches $
+              throwError $
+                unwords
+                  [ "Named instance",
+                    pretty lbl,
+                    "does not match call to",
+                    pretty n
+                  ]
+            tcCallNamedWithInst callExpr n lbl recvPreds allArgs pss' allTys namedInst
       _ -> tcCallWithNamedEvidence callExpr me n args resolvedImplArgs
 
 resolveNamedImplArg :: ImplArg -> TcM ResolvedImplArg
@@ -1427,6 +1427,7 @@ solveNamedImplArgs n ps ((implArg, inst) : rest) = do
               ],
             "Use an explicit constraint slot to disambiguate."
           ]
+
 namedImplArgSolvesWanted :: ImplArg -> Instance Name -> Pred -> TcM (Maybe (Pred, [Pred], Subst))
 namedImplArgSolvesWanted implArg inst wanted
   | Just slot <- implArgSlot implArg,
