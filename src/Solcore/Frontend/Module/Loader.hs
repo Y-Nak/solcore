@@ -1417,11 +1417,12 @@ qualifiedNamedInstanceDecls qualifier cunit =
 
 qualifiedClassDecls :: Name -> CompUnit -> [TopDecl]
 qualifiedClassDecls qualifier cunit =
-  [ TClassDef (renameClassDeclClassRefs classRenameMap cls {className = renamedClassName (className cls)})
+  [ TClassDef (renameClassDeclClassRefs classRenameMap (renameClassTypeRefs typeRenameMap cls {className = renamedClassName (className cls)}))
     | TClassDef cls <- topDeclsFrom cunit
   ]
   where
     classRenameMap = localClassRenameMap qualifier (topDeclsFrom cunit)
+    typeRenameMap = localTypeRenameMap qualifier (topDeclsFrom cunit)
     renamedClassName n = Map.findWithDefault n n classRenameMap
 
 localClassRenameMap :: Name -> [TopDecl] -> Map Name Name
