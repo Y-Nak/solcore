@@ -365,6 +365,18 @@ instance uint256:Sub {
   }
 }
 
+instance uint256:Mul {
+  function mul(x : uint256, y : uint256) -> uint256 {
+    return Typedef.abs(Mul.mul(Typedef.rep(x), Typedef.rep(y)));
+  }
+}
+
+instance uint256:Div {
+  function div(x : uint256, y : uint256) -> uint256 {
+    return Typedef.abs(Div.div(Typedef.rep(x), Typedef.rep(y)));
+  }
+}
+
 instance uint256:Eq {
   function eq(x : uint256, y : uint256) -> bool {
     return Eq.eq(Typedef.rep(x), Typedef.rep(y));
