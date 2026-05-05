@@ -1144,47 +1144,40 @@ forall reader . reader:WordReader => instance ABIDecoder((), reader):ABIDecode((
     }
 }
 
+// ABI decoding for bytes/strings (only in memory)
+forall a ptrtype reader. reader:WordReader =>
+function decodeBytesLike(ptr:ABIDecoder(memory(a), reader), currentHeadOffset:word) -> memory(a) {
+        let tmp:word;
+        let headRdr = WordReader.advance(ptr, currentHeadOffset);
+        let tailPtr : word = WordReader.read(headRdr);
+
+        let src = WordReader.advance(ptr, tailPtr);
+        let srcRdr = getReader(src);
+        let length = WordReader.read(src);
+        let total = Add.add(length, 32);
+        let rounded = round_up_to_mul_of_32(total);
+        let resultPtr : word = allocate_memory(rounded);
+        WordReader.copyToMem(srcRdr, resultPtr, total);
+        return memory(resultPtr);
+}
+
 // ABI decoding for strings (only in memory)
 forall reader. reader : WordReader =>
 instance ABIDecoder(memory(string), reader):ABIDecode(memory(string))
 {
     function decode(ptr:ABIDecoder(memory(string), reader), currentHeadOffset:word) -> memory(string) {
-        let tmp:word;
-        let headRdr = WordReader.advance(ptr, currentHeadOffset);
-        let tailPtr : word = WordReader.read(headRdr);
-
-        let src = WordReader.advance(ptr, tailPtr);
-        let srcRdr = getReader(src);
-        let length = WordReader.read(src);
-        let total = Add.add(length, 32);
-	let rounded = round_up_to_mul_of_32(total);
-        let resultPtr : word = allocate_memory(rounded)	;
-        WordReader.copyToMem(srcRdr, resultPtr, total);
-        return memory(resultPtr);
-    } // decode ends
+      return decodeBytesLike(ptr, currentHeadOffset);
+    }
 }
 
 // ABI decoding for bytes (only in memory)
-// TODO: copy of memory(string)
 forall reader. reader : WordReader =>
 instance ABIDecoder(memory(bytes), reader):ABIDecode(memory(bytes))
 {
     function decode(ptr:ABIDecoder(memory(bytes), reader), currentHeadOffset:word) -> memory(bytes) {
-        let tmp:word;
-        let headRdr = WordReader.advance(ptr, currentHeadOffset);
-        let tailPtr : word = WordReader.read(headRdr);
-
-        let src = WordReader.advance(ptr, tailPtr);
-        let srcRdr = getReader(src);
-        let length = WordReader.read(src);
-        let total = Add.add(length, 32);
-	let rounded = round_up_to_mul_of_32(total);
-        let resultPtr : word = allocate_memory(rounded)	;
-        WordReader.copyToMem(srcRdr, resultPtr, total);
-        return memory(resultPtr);
-    } // decode ends
+      return decodeBytesLike(ptr, currentHeadOffset);
+    }
 }
-
 
 // ABI decoding for a pair of decodable values
 // FAIL: Coverage
