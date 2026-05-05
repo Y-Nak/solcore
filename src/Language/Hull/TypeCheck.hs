@@ -16,7 +16,6 @@ import Data.Maybe (fromMaybe)
 import Language.Hull
 import Language.Hull.TcEnv
 import Language.Hull.TcMonad
-import Language.Hull.Types
 import Language.Yul
 import Solcore.Frontend.Syntax.Name qualified as SName
 
