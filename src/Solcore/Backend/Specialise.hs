@@ -12,7 +12,7 @@ import Control.Monad.State
 import Data.Generics
 import Data.List (find, intercalate, union, (\\))
 import Data.Map qualified as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Solcore.Backend.Mast
 import Solcore.Desugarer.IfDesugarer (desugaredBoolTy)
 import Solcore.Frontend.Pretty.ShortName
@@ -426,8 +426,9 @@ specExp (Call Nothing i [implArg] args) ty = do
   -- explicit evidence to a constrained function call.
   let lbl = implArgName implArg
   isNamedMethod <- namedEvidenceHasMethod lbl i
+  hasFunctionResolution <- callHasResolution i args ty
   (i'', args') <-
-    if isNamedMethod
+    if isNamedMethod && not hasFunctionResolution
       then do
         let i' = i {idName = QualName lbl (methodNameString (idName i))}
         specCall i' args ty
@@ -478,6 +479,13 @@ specConApp i@(Id _n conTy) args ty = do
 -- given actual arguments and the expected result type
 specCall :: Id -> [TcExp] -> Ty -> SM (Id, [TcExp])
 specCall = specCallWithEvidence []
+
+callHasResolution :: Id -> [TcExp] -> Ty -> SM Bool
+callHasResolution i args ty = do
+  i' <- atCurrentSubst i
+  ty' <- atCurrentSubst ty
+  argTypes' <- atCurrentSubst (map typeOfTcExp args)
+  isJust <$> lookupResolution (idName i') (foldr (:->) ty' argTypes')
 
 specCallWithEvidence :: [ImplArg] -> Id -> [TcExp] -> Ty -> SM (Id, [TcExp])
 specCallWithEvidence _ i@(Id (Name "revert") _) args _ = pure (i, args) -- FIXME

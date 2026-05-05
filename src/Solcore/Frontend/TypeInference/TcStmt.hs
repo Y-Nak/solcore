@@ -1349,26 +1349,46 @@ tcCallNamed me n implArgs args =
     let callExpr = Call me n implArgs args
     resolvedImplArgs <- mapM resolveNamedImplArg implArgs
     case resolvedImplArgs of
-      [(ImplArg _ lbl, namedInst)]
-        | hasNamedMethod n namedInst -> do
-            mrecv <- mapM tcExp me
-            (es', pss', ts') <- unzip3 <$> mapM tcExp args
-            let recvArgs = maybe [] (\(e', _, _) -> [e']) mrecv
-                recvPreds = maybe [] (\(_, ps0, _) -> ps0) mrecv
-                recvTys = maybe [] (\(_, _, ty0) -> [ty0]) mrecv
-                allArgs = recvArgs ++ es'
-                allTys = recvTys ++ ts'
-            matches <- matchesNamedCall callExpr n lbl allTys namedInst
-            unless matches $
-              throwError $
-                unwords
-                  [ "Named instance",
-                    pretty lbl,
-                    "does not match call to",
-                    pretty n
-                  ]
-            tcCallNamedWithInst callExpr n lbl recvPreds allArgs pss' allTys namedInst
+      [(implArg, namedInst)]
+        | isNothing me -> do
+            hasFunction <- isJust <$> maybeAskEnv n
+            if hasFunction
+              then tcCallWithNamedEvidence callExpr me n args resolvedImplArgs
+              else tcNamedMethodCall callExpr n implArg me args namedInst
+      [(implArg, namedInst)]
+        | hasNamedMethod n namedInst ->
+            tcNamedMethodCall callExpr n implArg me args namedInst
       _ -> tcCallWithNamedEvidence callExpr me n args resolvedImplArgs
+
+tcNamedMethodCall ::
+  Exp Name ->
+  Name ->
+  ImplArg ->
+  Maybe (Exp Name) ->
+  [Exp Name] ->
+  Instance Name ->
+  TcM (Exp Id, [Pred], Ty)
+tcNamedMethodCall callExpr n implArg@(ImplArg _ lbl) me args namedInst =
+  if hasNamedMethod n namedInst
+    then do
+      mrecv <- mapM tcExp me
+      (es', pss', ts') <- unzip3 <$> mapM tcExp args
+      let recvArgs = maybe [] (\(e', _, _) -> [e']) mrecv
+          recvPreds = maybe [] (\(_, ps0, _) -> ps0) mrecv
+          recvTys = maybe [] (\(_, _, ty0) -> [ty0]) mrecv
+          allArgs = recvArgs ++ es'
+          allTys = recvTys ++ ts'
+      matches <- matchesNamedCall callExpr n lbl allTys namedInst
+      unless matches $
+        throwError $
+          unwords
+            [ "Named instance",
+              pretty lbl,
+              "does not match call to",
+              pretty n
+            ]
+      tcCallNamedWithInst callExpr n lbl recvPreds allArgs pss' allTys namedInst
+    else tcCallWithNamedEvidence callExpr me n args [(implArg, namedInst)]
 
 resolveNamedImplArg :: ImplArg -> TcM ResolvedImplArg
 resolveNamedImplArg implArg@(ImplArg _ implName) =
