@@ -420,8 +420,8 @@ cases =
       runTestForFile "yul-asm-for-body.solc" caseFolder,
       runTestForFile
         "yul-asm-switch-body.solc"
-        caseFolder
-        runTestForFile
+        caseFolder,
+      runTestForFile
         "multi-stmt-var-leaf.solc"
         caseFolder,
       runTestForFile "simpleDiscount.solc" caseFolder
