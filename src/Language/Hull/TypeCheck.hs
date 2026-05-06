@@ -294,5 +294,5 @@ lookupAsmFun f = do
       pure $
         HullFunSig
           (map (const TWord) (hsig_args sig))
-          (nReturns (returnCount (hsig_ret sig)))  
+          (nReturns (returnCount (hsig_ret sig)))
     Nothing -> hullError ("Unknown function in assembly: " ++ s)

@@ -31,7 +31,7 @@ returnCount :: Type -> Int
 returnCount TUnit = 0
 returnCount TWord = 1
 returnCount (TPair a b) = returnCount a + returnCount b
-returnCount (TNamed _ t) = returnCount t 
+returnCount (TNamed _ t) = returnCount t
 returnCount _ = 1
 
 -- Return type for exactly n word-sized return slots.
