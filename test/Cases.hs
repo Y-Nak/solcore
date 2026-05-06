@@ -419,7 +419,15 @@ cases =
       runTestExpectingFailure "overlap-synonym-missed-two-synonyms.solc" caseFolder,
       runTestForFile "copytomem.solc" caseFolder,
       runTestForFile "fresh-variable-shadowing.solc" caseFolder,
-      runTestForFile "multi-stmt-var-leaf.solc" caseFolder,
+      runTestForFile "simpleDiscount.solc" caseFolder,
+      runTestForFile "yul-deposit-example.solc" caseFolder,
+      runTestForFile "yul-asm-for-body.solc" caseFolder,
+      runTestForFile
+        "yul-asm-switch-body.solc"
+        caseFolder,
+      runTestForFile
+        "multi-stmt-var-leaf.solc"
+        caseFolder,
       runTestForFile "simpleDiscount.solc" caseFolder
     ]
   where
