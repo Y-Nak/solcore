@@ -202,15 +202,15 @@ checkAsmStmt (YLet ns (Just e)) = do
         ]
   mapM_ (\n -> extendVar (show n) TWord) ns
 checkAsmStmt (YAssign ns e) = do
-  mapM_ (lookupVar . show) ns
+  lhsTypes <- mapM (lookupVar . show) ns
   t <- checkAsmExp e
-  let nExpected = length ns
+  let nExpected = sum (map returnCount lhsTypes)
       nActual = returnCount t
   when (nActual /= nExpected) $
     hullError $
       unlines
         [ "Return count mismatch in assignment",
-          "  assigning  " ++ show nExpected ++ " variable(s)",
+          "  assigning  " ++ show nExpected ++ " slot(s)",
           "  expression returns " ++ show nActual ++ " value(s)"
         ]
 checkAsmStmt (YIf cond body) = do
