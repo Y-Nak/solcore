@@ -20,4 +20,8 @@ contract C {
     function add3(x : uint256, y : uint256, z : uint256) -> uint256 {
         return Add.add(z, Add.add(x,y));
     }
+
+    function idbytes(b: memory(bytes)) -> memory(bytes) {
+        return b;
+    }
 }
