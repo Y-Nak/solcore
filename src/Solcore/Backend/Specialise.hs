@@ -363,6 +363,19 @@ specCall i args ty = do
   case mres of
     Just (fd, fty, phi) -> do
       debug ["< resolution: ", show name, "~>", shortName fd, " : ", pretty fty, "@", pretty phi]
+      let varToVar = [(v, t) | (v, t) <- unTVSubst phi, isTyVar t]
+      unless (null varToVar) $
+        warns
+          [ "Warning: call to ",
+            show name,
+            " resolved with ungrounded type variable(s): ",
+            prettys (map snd varToVar),
+            "\n  The intermediate type cannot be determined from this call site.",
+            "\n  Expression: ",
+            pretty (Call Nothing i args),
+            "\n  This often occurs when a polymorphic-return function (e.g. `require`)",
+            "\n  is passed directly to a polymorphic-argument function (e.g. `void`)."
+          ]
       extSpSubst phi
       subst <- getSpSubst
       let ty'' = applytv subst fty
@@ -429,14 +442,19 @@ ensureClosed :: (Pretty a) => Ty -> a -> TVSubst -> SM ()
 ensureClosed ty ctxt subst = do
   let tvs = freetv ty
   unless (null tvs) $
-    panics
-      [ "spec(",
+    nopanics
+      [ "Error: cannot specialise ",
         pretty ctxt,
-        "): free type vars in ",
+        "\n",
+        "  Type variable(s) ",
+        prettys tvs,
+        " remain unresolved in type ",
         pretty ty,
-        ": ",
-        show tvs,
-        " @ subst=",
+        "\n",
+        "  This usually means a polymorphic return value is passed to another\n",
+        "  polymorphic function without any concrete type context to resolve\n",
+        "  the intermediate type (e.g. void(require(...))).\n",
+        "  Substitution: ",
         pretty subst
       ]
 
@@ -613,6 +631,10 @@ prettyResolutions = render . brackets . commaSep . map pprRes
 
 -- instance Pretty (Ty, FunDef Id) where
 --  ppr = pprRes
+
+isTyVar :: Ty -> Bool
+isTyVar (TyVar _) = True
+isTyVar _ = False
 
 specmgu :: Ty -> Ty -> Either String TVSubst
 specmgu (TyCon n ts) (TyCon n' ts')
