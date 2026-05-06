@@ -416,7 +416,9 @@ cases =
       runTestForFile "copytomem.solc" caseFolder,
       runTestForFile "fresh-variable-shadowing.solc" caseFolder,
       runTestForFile "simpleDiscount.solc" caseFolder,
-      runTestForFile "yul-deposit-example.solc" caseFolder
+      runTestForFile "yul-deposit-example.solc" caseFolder,
+      runTestForFile "yul-asm-for-body.solc" caseFolder,
+      runTestForFile "yul-asm-switch-body.solc" caseFolder
     ]
   where
     caseFolder = "./test/examples/cases"
